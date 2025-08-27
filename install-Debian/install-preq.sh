@@ -96,11 +96,20 @@ if [ -f "packages-microsoft-prod.deb" ]; then
 	dpkg -i packages-microsoft-prod.deb && rm packages-microsoft-prod.deb
 fi
 
-if [ -z $ELASTICSEARCH_REPOSITORY ]; then
-	# add elasticsearch repo
-	curl -fsSL https://artifacts.elastic.co/GPG-KEY-elasticsearch | gpg --no-default-keyring --keyring gnupg-ring:/usr/share/keyrings/elastic-7.x.gpg --import
-	chmod 644 /usr/share/keyrings/elastic-7.x.gpg
-	echo "deb [signed-by=/usr/share/keyrings/elastic-7.x.gpg] https://artifacts.elastic.co/packages/7.x/apt stable main" | tee /etc/apt/sources.list.d/elastic-7.x.list
+if [ -z "${ELASTICSEARCH_REPOSITORY:-}" ]; then
+  # remove old elastic entries to avoid 403/conflicts
+  sed -i '/artifacts\.elastic\.co/d' /etc/apt/sources.list || true
+  rm -f /etc/apt/sources.list.d/elastic-*.list /etc/apt/sources.list.d/elasticsearch-*.list
+  rm -f /usr/share/keyrings/elastic-*.gpg /usr/share/keyrings/elasticsearch-*.gpg
+
+  # import fresh key (dearmored keyring)
+  curl -fsSL https://artifacts.elastic.co/GPG-KEY-elasticsearch \
+    | gpg --dearmor > /usr/share/keyrings/elasticsearch-keyring.gpg
+  chmod 644 /usr/share/keyrings/elasticsearch-keyring.gpg
+
+  # add 8.x repo
+  echo "deb [signed-by=/usr/share/keyrings/elasticsearch-keyring.gpg] https://artifacts.elastic.co/packages/8.x/apt stable main" \
+    > /etc/apt/sources.list.d/elasticsearch-8.x.list
 fi
 
 # add nodejs repo
